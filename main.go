@@ -41,6 +41,12 @@ func main() {
 
 	client, err := mongo.Connect(ctx, clientOptions)
 
+	defer func() {
+		if err := client.Disconnect(ctx); err != nil {
+			log.Printf("關閉連線時發生錯誤: %v", err)
+		}
+	}()
+
 	if err != nil {
 		log.Fatal("連線失敗:", err)
 	}
@@ -52,7 +58,7 @@ func main() {
 	database := client.Database("kanban-board")
 	usersCollection := database.Collection("user")
 
-	loc, _ := time.LoadLocation("America/Denver") // UTC-7 的時區
+	loc, _ := time.LoadLocation("America/Denver")
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -61,9 +67,10 @@ func main() {
 	})
 
 	r.GET("/user", func(c *gin.Context) {
+		reqCtx := c.Request.Context()
 		var results []UserResponse
 
-		cursor, err := usersCollection.Find(ctx, bson.D{})
+		cursor, err := usersCollection.Find(reqCtx, bson.D{})
 
 		if err != nil {
 			c.JSON(500, gin.H{
@@ -74,7 +81,7 @@ func main() {
 		}
 
 		defer func() {
-			if err := cursor.Close(ctx); err != nil {
+			if err := cursor.Close(reqCtx); err != nil {
 				log.Printf("關閉 cursor 時發生錯誤: %v", err)
 			}
 		}()
